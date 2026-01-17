@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Complaint Portal</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+body{
+ font-family:Arial;
+ margin:0;
+ background:url("https://images.unsplash.com/photo-1519389950473-47ba0277781c");
+ background-size:cover;
+ background-attachment:fixed;
+}
+.container{
+ max-width:360px;
+ margin:120px auto;
+ background:rgba(255,255,255,0.95);
+ padding:25px;
+ border-radius:8px;
+}
+input,textarea,select{
+ width:100%;
+ padding:7px;
+ margin-bottom:10px;
+ font-size:13px;
+}
+label{font-weight:bold;font-size:13px}
+button{
+ padding:8px;
+ background:#007bff;
+ color:#fff;
+ border:none;
+ cursor:pointer;
+ margin:2px;
+}
+button:hover{background:#0056b3}
+#dashboard{display:none}
+.navbar{
+ background:#007bff;
+ color:#fff;
+ padding:15px;
+ display:flex;
+ justify-content:space-between;
+}
+.menu button{
+ background:#fff;
+ color:#007bff;
+}
+#content{
+ background:rgba(255,255,255,0.95);
+ padding:20px;
+ border-radius:8px;
+ max-width:900px;
+ margin:20px auto;
+}
+.center-box{max-width:450px;margin:0 auto}
+table{
+ width:100%;
+ border-collapse:collapse;
+ margin-top:10px;
+}
+th,td{
+ border:1px solid #ccc;
+ padding:6px;
+ font-size:12px;
+}
+th{background:#e9ecef}
+
+/* ====== PROFESSIONAL UI ENHANCEMENTS ====== */
+
+/* Smooth page fade */
+body{
+ animation: fadeIn 0.8s ease-in-out;
+}
+
+@keyframes fadeIn{
+ from{opacity:0}
+ to{opacity:1}
+}
+
+/* Card animation */
+.container, #content{
+ animation: slideUp 0.6s ease;
+}
+
+@keyframes slideUp{
+ from{transform:translateY(20px);opacity:0}
+ to{transform:translateY(0);opacity:1}
+}
+
+/* Navbar shadow */
+.navbar{
+ box-shadow:0 4px 15px rgba(0,0,0,0.25);
+}
+
+/* Buttons */
+button{
+ border-radius:6px;
+ font-weight:600;
+ transition:all 0.3s ease;
+ box-shadow:0 3px 8px rgba(0,0,0,0.2);
+}
+
+button:hover{
+ transform:translateY(-2px);
+ box-shadow:0 6px 16px rgba(0,0,0,0.35);
+}
+
+/* Inputs focus */
+input, textarea, select{
+ border-radius:6px;
+ border:1px solid #ccc;
+ transition:0.3s;
+}
+
+input:focus, textarea:focus, select:focus{
+ outline:none;
+ border-color:#007bff;
+ box-shadow:0 0 6px rgba(0,123,255,0.5);
+}
+
+/* Tables */
+table{
+ animation: fadeTable 0.6s ease;
+}
+
+@keyframes fadeTable{
+ from{opacity:0}
+ to{opacity:1}
+}
+
+/* Status highlight */
+td:nth-child(9){
+ font-weight:bold;
+}
+
+/* Dashboard titles */
+h3{
+ color:#007bff;
+ text-align:center;
+}
+
+/* ===== MOBILE UI PRESERVE FIX ===== */
+@media (max-width: 600px){
+
+  /* Keep same container look */
+  .container{
+    max-width:360px;
+    margin:60px auto;
+  }
+
+  /* Button alignment fix */
+  button{
+    width:auto;              /* IMPORTANT */
+    display:inline-block;    /* IMPORTANT */
+    white-space:nowrap;
+    margin:5px 2px;
+  }
+
+  /* Button groups stay in one line */
+  .container button{
+    vertical-align:middle;
+  }
+
+  /* Prevent wrapping issues */
+  .container{
+    text-align:center;
+  }
+
+  /* Forms still left-aligned */
+  form, label, input, textarea, select{
+    text-align:left;
+  }
+
+  /* Home / navigation buttons */
+  .nav-buttons,
+  .menu,
+  .top-buttons{
+    display:flex;
+    justify-content:center;
+    flex-wrap:wrap;   /* wraps neatly, not broken */
+    gap:6px;
+  }
+}
+
+/* IT ASSET SEARCH BOX */
+#assetSearch{
+ border-radius:6px;
+ border:1px solid #ccc;
+ padding:4px;
+ font-size:13px;
+}
+
+#assetSearch:focus{
+ outline:none;
+ border-color:#007bff;
+ box-shadow:0 0 6px rgba(0,123,255,0.4);
+}
+
+#assetSearch{
+ border:1px solid #ccc;
+ border-radius:6px;
+}
+
+#assetSearch:focus{
+ outline:none;
+ border-color:#007bff;
+ box-shadow:0 0 5px rgba(0,123,255,.4);
+}
+
+
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div class="container" id="loginPage">
+<h3>Login</h3>
+<input id="username" placeholder="Username">
+<input id="password" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+<p id="error" style="color:red"></p>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+<div class="navbar">
+<b>Complaint Portal</b>
+<div class="menu">
+<button onclick="showHome()">Home</button>
+<button onclick="showRegister()">Register</button>
+<button onclick="showTracker()">Tracker</button>
+<button onclick="showHistory()">History</button>
+<button onclick="showAnalytics()" id="adminOnly">Analytics</button>
+<button onclick="showITAsset()" id="assetBtn">IT Assets</button>
+<button onclick="logout()">Logout</button>
+</div>
+</div>
+<div id="content"></div>
+</div>
+
+<script>
+    let complaints = [];
+
+// Firebase config
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID"
+};
+
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+/* OFFLINE + AUTO SYNC */
+firebase.firestore().enablePersistence().catch(()=>{});
+
+// REAL-TIME SYNC
+db.collection("complaints")
+  .orderBy("createdAt","desc")
+  .onSnapshot(snapshot=>{
+    complaints = [];
+    snapshot.forEach(doc=>{
+      complaints.push({ id: doc.id, ...doc.data() });
+    });
+  });
+
+let session = JSON.parse(localStorage.getItem("session"));
+let chartInstance;
+
+/* AUTO LOGIN */
+if(session){
+ loginPage.style.display="none";
+ dashboard.style.display="block";
+ toggleAdmin(session.role);
+ showHome();
+}
+
+/* LOGIN */
+function login(){
+ const users={
+  admin:{pass:"admin",role:"admin"},
+  SOIT:{pass:"SOIT",role:"user"},
+  SUPERADMIN:{pass:"SUPERADMIN",role:"admin"} // Super admin full access
+ };
+ if(users[username.value] && users[username.value].pass===password.value){
+  session={user:username.value,role:users[username.value].role};
+  localStorage.setItem("session",JSON.stringify(session));
+  loginPage.style.display="none";
+  dashboard.style.display="block";
+  toggleAdmin(session.role);
+  showHome();
+ }else error.innerText="Invalid Login";
+}
+
+function toggleAdmin(role){
+ adminOnly.style.display = role==="admin" ? "inline-block" : "none";
+ assetBtn.style.display  = role==="admin" ? "inline-block" : "none";
+}
+
+
+/* HOME */
+function showHome(){
+ content.innerHTML=`
+ <div style="text-align:center;padding:40px">
+  <h2 style="color:#007bff">HI-GRADE ENGINEERING</h2>
+  <p>Welcome <b>${session.user}</b><br>
+  Role: <b>${session.role.toUpperCase()}</b></p>
+ </div>`;
+ animateContent();
+}
+
+function animateContent(){
+ content.style.opacity = 0;
+ content.style.transform = "translateY(10px)";
+ setTimeout(()=>{
+  content.style.opacity = 1;
+  content.style.transform = "translateY(0)";
+ },150);
+}
+
+/* REGISTER */
+function showRegister(){
+ let today=new Date().toISOString().split("T")[0];
+ let rule=session.role==="user"
+ ?`value="${today}" min="${today}" readonly`
+ :`value="${today}"`;
+
+ content.innerHTML=`
+ <h3>Raise Complaint</h3>
+ <div class="center-box">
+ <form onsubmit="return submitComplaint()">
+ <label>Name</label><input id="empName" required>
+ <label>Department</label><input id="dept" required>
+ <label>PC Name</label><input id="pc" required>
+ <label>User ID</label><input id="uid" required>
+ <label>Date</label><input type="date" id="date" ${rule} required>
+
+ <label>Complaint Priority</label>
+ <select id="priority" required>
+  <option value="">-- Select Priority --</option>
+  <option>High</option>
+  <option>Medium</option>
+  <option>Low</option>
+ </select>
+
+ <label>Issue Description</label>
+ <textarea id="desc" rows="5" required></textarea>
+
+ <button>Submit Complaint</button>
+ </form>
+ </div>`;
+}
+
+
+/* SUBMIT */
+function submitComplaint(){
+ db.collection("complaints").add({
+  name: empName.value,
+  dept: dept.value,
+  pc: pc.value,
+  uid: uid.value,
+  date: date.value,
+  priority: priority.value,
+  desc: desc.value,
+  status: "Complaint Registered",
+  remarks: "",
+  createdBy: session.user,
+  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+ });
+
+ alert("Complaint Registered");
+ showRegister();
+ return false;
+}
+
+function animateContent(){
+ content.style.opacity = 0;
+ content.style.transform = "translateY(10px)";
+ setTimeout(()=>{
+  content.style.opacity = 1;
+  content.style.transform = "translateY(0)";
+ },150);
+}
+
+
+/* TRACKER */
+function showTracker(){
+ let admin = session.role === "admin";
+
+ content.innerHTML = `
+ <h3>Status Tracker</h3>
+
+ <div class="center-box">
+
+  <label>Complaint ID</label>
+  <input id="cid">
+<label>Date</label>
+<input type="date" id="trackDate" readonly>
+
+<label>Time</label>
+<input type="time" id="trackTime" readonly>
+
+  <label>Status</label>
+  ${
+   admin
+   ? `<select id="status">
+        <option>Complaint Registered</option>
+        <option>Complaint Status</option>
+        <option>Updation</option>
+        <option>Resolved</option>
+      </select>`
+   : `<input id="status" readonly>`
+  }
+
+  <label>Remarks</label>
+  <textarea id="remarks" ${admin ? "" : "readonly"}></textarea>
+
+  ${
+   admin
+   ? `<button onclick="updateStatus()">Update</button>`
+   : `<button onclick="viewStatus()">Submit</button>`
+  }
+
+ </div>`;
+setCurrentDateTime();
+}
+
+
+
+/* USER VIEW STATUS ONLY */
+function viewStatus(){
+ let cid = document.getElementById("cid").value;
+ let c = complaints.find(x => x.id === cid);
+
+ if(!c){
+  alert("Invalid Complaint ID");
+  document.getElementById("status").value = "";
+  document.getElementById("remarks").value = "";
+  return;
+ }
+
+ document.getElementById("status").value = c.status;
+ document.getElementById("remarks").value = c.remarks || "No remarks yet";
+}
+
+/* AUTO LOAD STATUS FOR ADMIN */
+document.addEventListener("input", e => {
+ if(e.target.id === "cid" && session.role === "admin"){
+  let c = complaints.find(x => x.id === e.target.value);
+  if(c){
+   document.getElementById("status").value = c.status;
+   document.getElementById("remarks").value = c.remarks;
+  }
+ }
+});
+
+/* UPDATE STATUS FOR ADMIN */
+function updateStatus(){
+ let cid = document.getElementById("cid").value;
+ let status = document.getElementById("status").value;
+ let remarks = document.getElementById("remarks").value;
+
+ let c = complaints.find(x => x.id === cid);
+ if(!c){
+  alert("Invalid Complaint ID");
+  return;
+ }
+
+ c.status = status;
+ c.remarks = remarks;
+
+ localStorage.setItem("complaints", JSON.stringify(complaints));
+
+ alert(
+  "STATUS UPDATED SUCCESSFULLY\n\n" +
+  "Complaint ID : " + c.id + "\n" +
+  "Updated Status : " + c.status
+ );
+}
+
+
+/* UPDATE STATUS */
+function updateStatus(){
+ let cid = document.getElementById("cid").value;
+
+ db.collection("complaints").doc(cid).update({
+  status: status.value,
+  remarks: remarks.value,
+  updateDate: trackDate.value,
+  updateTime: trackTime.value
+ });
+
+ alert("Status updated successfully");
+}
+
+function animateContent(){
+ content.style.opacity = 0;
+ content.style.transform = "translateY(10px)";
+ setTimeout(()=>{
+  content.style.opacity = 1;
+  content.style.transform = "translateY(0)";
+ },150);
+}
+
+
+/* HISTORY + DELETE FOR SUPERADMIN */
+function showHistory(){
+    // Filter data based on role
+    let data = session.role === "admin" || session.role === "SUPERADMIN"
+        ? complaints
+        : complaints.filter(c => c.createdBy === session.user);
+
+    content.innerHTML = `
+    <h3 style="text-align:center">Complaint History</h3>
+
+    <div style="text-align:center;margin-bottom:10px">
+        <button onclick="exportCSV()">CSV</button>
+        <button onclick="exportExcel()">Excel</button>
+        <button onclick="exportPDF()">PDF</button>
+    </div>
+
+    <table id="historyTable">
+    <tr>
+        <th>ID</th><th>Name</th><th>Dept</th><th>PC</th>
+        <th>User</th><th>Date</th><th>Priority</th>
+        <th>Issue</th><th>Status</th><th>Remarks</th>
+        <th>Update Date</th>
+<th>Update Time</th>
+
+        ${session.user === "SUPERADMIN" ? "<th>Action</th>" : ""}
+        
+    </tr>
+    ${data.map((c,index) => `
+    <tr>
+        <td>${c.id}</td>
+        <td>${c.name}</td>
+        <td>${c.dept}</td>
+        <td>${c.pc}</td>
+        <td>${c.uid}</td>
+        <td>${c.date}</td>
+        <td>${c.priority}</td>
+        <td>${c.desc}</td>
+        <td>${c.status}</td>
+        <td>${c.remarks}</td>
+        <td>${c.updateDate || "-"}</td>
+<td>${c.updateTime || "-"}</td>
+
+        ${
+          session.user === "SUPERADMIN"
+            ? `<td><button onclick="deleteComplaint('${c.id}')">Delete</button></td>`
+            : ""
+        }
+    </tr>`).join("")}
+    </table>
+    `;
+}
+function animateContent(){
+ content.style.opacity = 0;
+ content.style.transform = "translateY(10px)";
+ setTimeout(()=>{
+  content.style.opacity = 1;
+  content.style.transform = "translateY(0)";
+ },150);
+}
+
+
+/* DELETE FUNCTION FOR SUPERADMIN */
+function deleteComplaint(id){
+ if(confirm("Delete complaint?")){
+  db.collection("complaints").doc(id).delete();
+ }
+}
+
+function animateContent(){
+ content.style.opacity = 0;
+ content.style.transform = "translateY(10px)";
+ setTimeout(()=>{
+  content.style.opacity = 1;
+  content.style.transform = "translateY(0)";
+ },150);
+}
+
+
+/* EXPORTS */
+
+function exportCSV(){
+ let rows=[...document.querySelectorAll("#historyTable tr")]
+ .map(tr=>[...tr.children].map(td=>`"${td.innerText}"`).join(","))
+ .join("\n");
+ let blob=new Blob([rows],{type:"text/csv"});
+ let a=document.createElement("a");
+ a.href=URL.createObjectURL(blob);
+ a.download="complaints.csv";
+ a.click();
+}
+
+function exportExcel(){
+ let table=document.getElementById("historyTable").outerHTML;
+ let blob=new Blob([table],{type:"application/vnd.ms-excel"});
+ let a=document.createElement("a");
+ a.href=URL.createObjectURL(blob);
+ a.download="complaints.xls";
+ a.click();
+}
+
+function exportPDF(){
+ let w=window.open("");
+ w.document.write("<h3>Complaint History</h3>"+document.getElementById("historyTable").outerHTML);
+ w.print();
+ w.close();
+}
+function animateContent(){
+ content.style.opacity = 0;
+ content.style.transform = "translateY(10px)";
+ setTimeout(()=>{
+  content.style.opacity = 1;
+  content.style.transform = "translateY(0)";
+ },150);
+}
+
+
+/* ANALYTICS */
+
+function showAnalytics(){
+
+ let labels = [
+  "Complaint Registered",
+  "Complaint Status",
+  "Updation",
+  "Resolved"
+ ];
+
+ let count = {
+  "Complaint Registered": 0,
+  "Complaint Status": 0,
+  "Updation": 0,
+  "Resolved": 0
+ };
+
+ complaints.forEach(c => {
+  if(count[c.status] !== undefined){
+   count[c.status]++;
+  }
+ });
+
+ content.innerHTML = `
+ <h3 style="text-align:center">Complaint Status Overview</h3>
+
+ <div style="
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  max-width:850px;
+  margin:30px auto;
+ ">
+
+  <!-- LEFT : STATUS COUNT LIST -->
+  <div style="
+   width:40%;
+   background:#f8f9fa;
+   padding:20px;
+   border-radius:8px;
+   box-shadow:0 2px 6px rgba(0,0,0,0.1);
+  ">
+   <h4 style="margin-top:0">Status Summary</h4>
+
+   <div style="display:flex;justify-content:space-between;padding:8px 0">
+    <span>Complaint Registered</span>
+    <b>${count["Complaint Registered"]}</b>
+   </div>
+
+   <div style="display:flex;justify-content:space-between;padding:8px 0">
+    <span>Complaint Status</span>
+    <b>${count["Complaint Status"]}</b>
+   </div>
+
+   <div style="display:flex;justify-content:space-between;padding:8px 0">
+    <span>Updation</span>
+    <b>${count["Updation"]}</b>
+   </div>
+
+   <div style="display:flex;justify-content:space-between;padding:8px 0">
+    <span>Resolved</span>
+    <b>${count["Resolved"]}</b>
+   </div>
+  </div>
+
+  <!-- RIGHT : PIE CHART -->
+  <div style="width:50%;height:360px">
+   <canvas id="chart"></canvas>
+  </div>
+
+ </div>
+ `;
+
+ if(chartInstance) chartInstance.destroy();
+
+ chartInstance = new Chart(chart,{
+  type:"pie",
+  data:{
+   labels:labels,
+   datasets:[{
+    data:labels.map(l => count[l]),
+    backgroundColor:[
+     "#FF0000",
+     "#ffc107",
+     "#6f42c1",
+     "#28a745"
+    ]
+   }]
+  },
+  options:{
+   responsive:true,
+   plugins:{
+    legend:{ position:"bottom" }
+   }
+  }
+ });
+}
+
+function animateContent(){
+ content.style.opacity = 0;
+ content.style.transform = "translateY(10px)";
+ setTimeout(()=>{
+  content.style.opacity = 1;
+  content.style.transform = "translateY(0)";
+ },150);
+}
+
+
+/* LOGOUT */
+function logout(){
+
+ localStorage.removeItem("session");
+
+ document.body.innerHTML = `
+ <div style="
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:linear-gradient(135deg,#007bff,#00c6ff);
+  animation:fadeIn 1s ease;
+ ">
+  <div style="
+   background:rgba(255,255,255,0.15);
+   padding:45px;
+   border-radius:14px;
+   text-align:center;
+   color:#fff;
+   box-shadow:0 15px 40px rgba(0,0,0,0.4);
+   animation:slideUp 0.8s ease;
+  ">
+   <h1 style="margin-bottom:10px">Thank You</h1>
+   <h2 style="margin:10px 0;font-weight:bold">
+    HI-GRADE ENGINEERING
+   </h2>
+   <p style="opacity:0.9">
+    You have logged out successfully
+   </p>
+
+   <button onclick="location.reload()" style="
+    margin-top:20px;
+    background:#fff;
+    color:#007bff;
+    font-weight:bold;
+    padding:10px 20px;
+   ">
+    Login Again
+   </button>
+  </div>
+ </div>
+ `;
+}
+let itAssets = JSON.parse(localStorage.getItem("itAssets")) || [];
+
+function showITAsset(){
+ content.innerHTML = `
+ <h3>IT ASSET MANAGEMENT</h3>
+
+ <!-- SEARCH & FILTER BAR -->
+<div style="display:flex;justify-content:center;gap:6px;margin:10px 0">
+
+ <textarea
+  id="assetSearch"
+  placeholder="Search asset"
+  rows="1"
+  style="
+   width:8cm;
+   height:0.5cm;
+   resize:none;
+   padding:4px;
+   font-size:13px;
+  "
+ ></textarea>
+
+ <button
+ onclick="filterAssets()"
+ style="
+  padding:4px 8px;
+  font-size:12px;
+  height:0.7cm;
+ ">
+ Search
+</button>
+
+<button
+ onclick="toggleAssetFilter()"
+ title="Filter"
+ style="
+  padding:4px 8px;
+  font-size:12px;
+  height:0.7cm;
+ ">
+ &#x1F5D0;
+</button>
+
+
+</div>
+
+ <div class="center-box">
+
+  <input type="file" id="assetFile">
+
+  <button onclick="uploadAsset()">Upload</button>
+
+  <table id="assetTable">
+   <tr>
+    <th>Type</th>
+    <th>File Name</th>
+    <th>Action</th>
+   </tr>
+
+   ${itAssets.map((a,index)=>`
+    <tr data-row>
+     <td>${getFileIcon(a.type)}</td>
+     <td>${a.name}</td>
+     <td>
+      <button onclick="previewAsset(${index})">Preview</button>
+      <button onclick="downloadSingleAsset(${index})">Download</button>
+      ${
+        session.user === "SUPERADMIN"
+        ? `<button onclick="deleteAsset(${index})" style="background:#dc3545">Delete</button>`
+        : ``
+      }
+     </td>
+    </tr>
+   `).join("")}
+
+  </table>
+
+ </div>`;
+}
+
+function uploadAsset(){
+ let f = document.getElementById("assetFile").files[0];
+ if(!f){
+  alert("Select a file");
+  return;
+ }
+
+let readerURL = URL.createObjectURL(f);
+
+itAssets.push({
+ name: f.name,
+ type: f.name.split(".").pop().toUpperCase(),
+ url: readerURL,
+ datetime: new Date().toLocaleString()
+});
+
+
+ localStorage.setItem("itAssets", JSON.stringify(itAssets));
+ alert("File uploaded successfully");
+ showITAsset();
+}
+function downloadSingleAsset(index){
+ let asset = itAssets[index];
+
+ let blob = new Blob(
+  [JSON.stringify(asset,null,2)],
+  {type:"application/octet-stream"}
+ );
+
+ let a = document.createElement("a");
+ a.href = URL.createObjectURL(blob);
+ a.download = asset.name;
+ a.click();
+}
+
+function downloadAssets(){
+ let blob=new Blob(
+  [JSON.stringify(itAssets,null,2)],
+  {type:"application/json"}
+ );
+ let a=document.createElement("a");
+ a.href=URL.createObjectURL(blob);
+ a.download="it_assets.json";
+ a.click();
+}
+function deleteAsset(index){
+ if(!confirm("Delete this asset?")) return;
+
+ itAssets.splice(index,1);
+ localStorage.setItem("itAssets", JSON.stringify(itAssets));
+ showITAsset();
+}
+
+function getFileIcon(type){
+ switch(type){
+  case "PDF": return "📄 PDF";
+  case "XLS":
+  case "XLSX": return "📊 EXCEL";
+  case "DOC":
+  case "DOCX": return "📝 WORD";
+  case "PPT":
+  case "PPTX": return "📽 PPT";
+  case "ZIP": return "🗜 ZIP";
+  default: return "📁 FILE";
+ }
+}
+function previewAsset(index){
+ let a = itAssets[index];
+ let ext = a.type;
+
+ let previewHTML = "";
+
+ if(["PNG","JPG","JPEG","GIF","WEBP"].includes(ext)){
+  previewHTML = `<img src="${a.url || ''}" style="max-width:100%">`;
+ }
+ else if(ext === "PDF"){
+  previewHTML = `
+   <object data="${a.url || ''}" type="application/pdf" width="100%" height="450">
+    PDF preview not supported
+   </object>`;
+ }
+ else if(ext === "TXT"){
+  previewHTML = `<pre>Text file preview not supported offline</pre>`;
+ }
+ else{
+  previewHTML = `
+   <div style="text-align:center;padding:40px">
+    <h3>${getFileIcon(ext)}</h3>
+    <p>Preview not supported for ${ext} files</p>
+   </div>`;
+ }
+
+ showPreviewModal(previewHTML, a.name);
+}
+
+
+function filterAssets(){
+ let q = document.getElementById("assetSearch").value.toLowerCase();
+ let rows = document.querySelectorAll("#assetTable tr[data-row]");
+
+ rows.forEach(r=>{
+  r.style.display = r.innerText.toLowerCase().includes(q) ? "" : "none";
+ });
+}
+
+function toggleAssetFilter(){
+ alert("Filter options will be added here");
+}
+
+function setCurrentDateTime(){
+ let now = new Date();
+
+ document.getElementById("trackDate").value =
+  now.toISOString().split("T")[0];
+
+ document.getElementById("trackTime").value =
+  now.toTimeString().slice(0,5);
+}
+function showPreviewModal(html,title){
+ document.getElementById("previewTitle").innerText = title;
+ document.getElementById("previewContent").innerHTML = html;
+ document.getElementById("previewModal").style.display = "block";
+}
+
+function closePreview(){
+ document.getElementById("previewModal").style.display = "none";
+ document.getElementById("previewContent").innerHTML = "";
+}
+
+
+function toggleAssetFilter(){
+ alert("Filter options coming here (PDF, Excel, Word etc)");
+}
+
+
+</script>
+
+<div id="previewModal" style="
+ display:none;
+ position:fixed;
+ inset:0;
+ background:rgba(0,0,0,0.7);
+ z-index:9999;
+">
+ <div style="
+  background:#fff;
+  width:80%;
+  max-width:700px;
+  margin:50px auto;
+  padding:15px;
+  border-radius:8px;
+ ">
+  <div style="display:flex;justify-content:space-between">
+   <b id="previewTitle"></b>
+   <button onclick="closePreview()">X</button>
+  </div>
+  <hr>
+  <div id="previewContent"></div>
+ </div>
+</div>
+
+</body>
+</html>
