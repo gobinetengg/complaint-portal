@@ -5,9 +5,6 @@
 <title>Complaint Portal</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
 body{
@@ -247,32 +244,8 @@ h3{
 </div>
 
 <script>
-    let complaints = [];
-
-// Firebase config
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID"
-};
-
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
-/* OFFLINE + AUTO SYNC */
-firebase.firestore().enablePersistence().catch(()=>{});
-
-// REAL-TIME SYNC
-db.collection("complaints")
-  .orderBy("createdAt","desc")
-  .onSnapshot(snapshot=>{
-    complaints = [];
-    snapshot.forEach(doc=>{
-      complaints.push({ id: doc.id, ...doc.data() });
-    });
-  });
-
+let complaints = JSON.parse(localStorage.getItem("complaints")) || [];
+let complaintCounter = parseInt(localStorage.getItem("complaintCounter")) || 1;
 let session = JSON.parse(localStorage.getItem("session"));
 let chartInstance;
 
@@ -363,25 +336,30 @@ function showRegister(){
 
 /* SUBMIT */
 function submitComplaint(){
- db.collection("complaints").add({
-  name: empName.value,
-  dept: dept.value,
-  pc: pc.value,
-  uid: uid.value,
-  date: date.value,
-  priority: priority.value,
-  desc: desc.value,
+ let cid="CMP-"+String(complaintCounter).padStart(4,"0");
+
+ complaints.push({
+  id: cid,
+  name: document.getElementById("empName").value,
+  dept: document.getElementById("dept").value,
+  pc: document.getElementById("pc").value,
+  uid: document.getElementById("uid").value,
+  date: document.getElementById("date").value,
+  priority: document.getElementById("priority").value,
+  desc: document.getElementById("desc").value,
   status: "Complaint Registered",
   remarks: "",
-  createdBy: session.user,
-  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  createdBy: session.user
  });
 
- alert("Complaint Registered");
+ complaintCounter++;
+ localStorage.setItem("complaintCounter", complaintCounter);
+ localStorage.setItem("complaints", JSON.stringify(complaints));
+
+ alert("Complaint Registered\nID: "+cid);
  showRegister();
  return false;
 }
-
 function animateContent(){
  content.style.opacity = 0;
  content.style.transform = "translateY(10px)";
@@ -490,18 +468,26 @@ function updateStatus(){
 
 /* UPDATE STATUS */
 function updateStatus(){
- let cid = document.getElementById("cid").value;
+ let cid=document.getElementById("cid").value;
+ let status=document.getElementById("status").value;
+ let remarks=document.getElementById("remarks").value;
 
- db.collection("complaints").doc(cid).update({
-  status: status.value,
-  remarks: remarks.value,
-  updateDate: trackDate.value,
-  updateTime: trackTime.value
- });
+ let c=complaints.find(x=>x.id===cid);
+ if(!c){ alert("Invalid Complaint ID"); return; }
 
- alert("Status updated successfully");
+ c.status=status;
+ c.remarks=remarks;
+c.updateDate = document.getElementById("trackDate").value;
+c.updateTime = document.getElementById("trackTime").value;
+
+ localStorage.setItem("complaints",JSON.stringify(complaints));
+
+ alert(
+  "STATUS UPDATED SUCCESSFULLY\n\n"+
+  "Complaint ID : "+c.id+"\n"+
+  "Updated Status : "+c.status
+ );
 }
-
 function animateContent(){
  content.style.opacity = 0;
  content.style.transform = "translateY(10px)";
@@ -574,10 +560,24 @@ function animateContent(){
 
 
 /* DELETE FUNCTION FOR SUPERADMIN */
-function deleteComplaint(id){
- if(confirm("Delete complaint?")){
-  db.collection("complaints").doc(id).delete();
- }
+function deleteComplaint(cid){
+    if(!confirm("Are you sure you want to delete Complaint ID: " + cid + "?")) return;
+
+    // Remove complaint from array
+    complaints = complaints.filter(c => c.id !== cid);
+
+    // Reassign complaintCounter and IDs in series
+    complaints.forEach((c,index) => {
+        c.id = "CMP-" + String(index + 1).padStart(4,"0");
+    });
+    complaintCounter = complaints.length + 1;
+
+    // Save updated complaints
+    localStorage.setItem("complaints", JSON.stringify(complaints));
+    localStorage.setItem("complaintCounter", complaintCounter);
+
+    // Refresh history table
+    showHistory();
 }
 
 function animateContent(){
